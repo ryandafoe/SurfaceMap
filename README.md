@@ -4,7 +4,7 @@ AI-powered attack surface reconnaissance — enter a domain, get a structured se
 
 ---
 
-![Screenshot placeholder](https://placehold.co/1200x600/080b10/00f5d4?text=Screenshot+coming+soon)
+![SurfaceMap screenshot](docs/exsc.png)
 
 ---
 
