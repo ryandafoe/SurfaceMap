@@ -18,11 +18,8 @@ const STATIC_TERMS = {
   api:     'Application Programming Interface endpoint — may expose data or functionality without proper auth',
 }
 
-// Context holds the active merged terms map (lowercase key → definition)
 const TermsContext = createContext(STATIC_TERMS)
 
-// Build a merged terms map from the static baseline + API glossary.
-// Glossary entries win on collision so scan-specific definitions take precedence.
 function buildTermsMap(glossary = []) {
   const fromApi = Object.fromEntries(
     glossary.map(({ term, definition }) => [term.toLowerCase(), definition])
@@ -30,9 +27,6 @@ function buildTermsMap(glossary = []) {
   return { ...STATIC_TERMS, ...fromApi }
 }
 
-// Build a regex that matches any known term, case-insensitively.
-// Sort longest-first so multi-word terms (e.g. "Certificate Transparency")
-// are matched before their component words.
 function buildPattern(terms) {
   const escaped = Object.keys(terms)
     .sort((a, b) => b.length - a.length)
@@ -41,20 +35,20 @@ function buildPattern(terms) {
 }
 
 // ---------------------------------------------------------------------------
-// Risk colours
+// Risk colours — HIGH is solid/urgent, MEDIUM/LOW are bordered
 // ---------------------------------------------------------------------------
-const RISK_COLORS = {
-  high:   { bg: '#2d1515', border: '#dc2626', text: '#f87171' },
-  medium: { bg: '#2d1a0a', border: '#d97706', text: '#fbbf24' },
-  low:    { bg: '#0a2d15', border: '#16a34a', text: '#4ade80' },
+const RISK_STYLES = {
+  high:   { bg: '#dc2626',         border: '#dc2626', text: '#fff'     },
+  medium: { bg: '#92400e',         border: '#d97706', text: '#fde68a'  },
+  low:    { bg: 'transparent',     border: '#16a34a', text: '#4ade80'  },
 }
 
-function riskColors(level) {
-  return RISK_COLORS[level?.toLowerCase()] ?? RISK_COLORS.low
+function riskStyle(level) {
+  return RISK_STYLES[level?.toLowerCase()] ?? RISK_STYLES.low
 }
 
 // ---------------------------------------------------------------------------
-// Tooltip — reads definition from context
+// Tooltip
 // ---------------------------------------------------------------------------
 function Tooltip({ termKey, children }) {
   const terms = useContext(TermsContext)
@@ -67,7 +61,7 @@ function Tooltip({ termKey, children }) {
 }
 
 // ---------------------------------------------------------------------------
-// HighlightedText — scans prose for terms from context and wraps them
+// HighlightedText
 // ---------------------------------------------------------------------------
 function HighlightedText({ text }) {
   const terms = useContext(TermsContext)
@@ -86,7 +80,7 @@ function HighlightedText({ text }) {
 }
 
 // ---------------------------------------------------------------------------
-// SubdomainDisplay — tooltips on matching dot-separated segments
+// SubdomainDisplay
 // ---------------------------------------------------------------------------
 function SubdomainDisplay({ subdomain }) {
   const terms = useContext(TermsContext)
@@ -112,13 +106,13 @@ function SubdomainDisplay({ subdomain }) {
 // RiskBadge
 // ---------------------------------------------------------------------------
 function RiskBadge({ level, large = false }) {
-  const c = riskColors(level)
+  const s = riskStyle(level)
   return (
     <span
       className={`risk-badge${large ? ' risk-badge-large' : ''}`}
-      style={{ background: c.bg, borderColor: c.border, color: c.text }}
+      style={{ background: s.bg, borderColor: s.border, color: s.text }}
     >
-      {level}
+      {level?.toUpperCase()}
     </span>
   )
 }
@@ -183,10 +177,8 @@ export default function App() {
     const margin = 50
     const contentW = pageW - margin * 2
     const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-
     let y = 0
 
-    // Helper: add text with automatic page breaks
     function write(text, { fontSize = 11, bold = false, gap = 14 } = {}) {
       doc.setFontSize(fontSize)
       doc.setFont('helvetica', bold ? 'bold' : 'normal')
@@ -208,7 +200,6 @@ export default function App() {
       y += 14
     }
 
-    // Title
     y = margin
     write('SurfaceMap Security Report', { fontSize: 20, bold: true, gap: 6 })
     write(`Domain: ${result.domain}`, { fontSize: 11, gap: 4 })
@@ -216,12 +207,10 @@ export default function App() {
     write(`Overall Risk: ${analysis.risk_level}`, { fontSize: 11, bold: true, gap: 16 })
     divider()
 
-    // Overview
     write('Overview', { fontSize: 14, bold: true, gap: 8 })
     write(analysis.overview, { fontSize: 11, gap: 16 })
     divider()
 
-    // Findings
     write('Notable Findings', { fontSize: 14, bold: true, gap: 10 })
     analysis.findings.forEach((f, i) => {
       write(`${i + 1}. ${f.subdomain}  [${f.risk}]`, { fontSize: 11, bold: true, gap: 4 })
@@ -229,14 +218,12 @@ export default function App() {
     })
     divider()
 
-    // Recommendations
     write('Recommendations', { fontSize: 14, bold: true, gap: 10 })
     analysis.recommendations.forEach((rec, i) => {
       write(`${i + 1}. ${rec}`, { fontSize: 11, gap: 8 })
     })
     divider()
 
-    // Footer
     const totalPages = doc.internal.getNumberOfPages()
     for (let p = 1; p <= totalPages; p++) {
       doc.setPage(p)
@@ -252,107 +239,124 @@ export default function App() {
   }
 
   return (
-    <div className="container">
-      {/* Header */}
-      <header className="header">
-        <div className="logo-row">
-          <svg width="30" height="30" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-            <polygon points="16,2 30,9 30,23 16,30 2,23 2,9" fill="#0f1623" stroke="#4f86f7" strokeWidth="1.5" />
-            <circle cx="16" cy="16" r="5" fill="#4f86f7" fillOpacity="0.15" />
-            <circle cx="16" cy="16" r="2" fill="#4f86f7" />
-            <line x1="16" y1="11" x2="16" y2="7"  stroke="#4f86f7" strokeWidth="1.5" />
-            <line x1="16" y1="21" x2="16" y2="25" stroke="#4f86f7" strokeWidth="1.5" />
-            <line x1="11" y1="16" x2="7"  y2="16" stroke="#4f86f7" strokeWidth="1.5" />
-            <line x1="21" y1="16" x2="25" y2="16" stroke="#4f86f7" strokeWidth="1.5" />
-          </svg>
-          <h1>SurfaceMap</h1>
+    <>
+      {/* ── Sticky top bar ── */}
+      <header className="topbar">
+        <div className="topbar-inner">
+          <div className="topbar-left">
+            <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <polygon points="16,2 30,9 30,23 16,30 2,23 2,9" fill="none" stroke="#00f5d4" strokeWidth="1.5" />
+              <circle cx="16" cy="16" r="5" fill="#00f5d4" fillOpacity="0.1" />
+              <circle cx="16" cy="16" r="2" fill="#00f5d4" />
+              <line x1="16" y1="11" x2="16" y2="7"  stroke="#00f5d4" strokeWidth="1.5" />
+              <line x1="16" y1="21" x2="16" y2="25" stroke="#00f5d4" strokeWidth="1.5" />
+              <line x1="11" y1="16" x2="7"  y2="16" stroke="#00f5d4" strokeWidth="1.5" />
+              <line x1="21" y1="16" x2="25" y2="16" stroke="#00f5d4" strokeWidth="1.5" />
+            </svg>
+            <span className="topbar-name">SurfaceMap</span>
+            {loading && <span className="pulse-dot" aria-label="Scanning" />}
+          </div>
+          <span className="topbar-tagline">Attack Surface Reconnaissance</span>
         </div>
-        <p className="subtitle">AI-powered attack surface reconnaissance</p>
       </header>
 
-      {/* Scan form */}
-      <form onSubmit={handleScan} className="scan-form">
-        <input
-          type="text"
-          placeholder="Enter a domain (e.g. example.com)"
-          value={domain}
-          onChange={e => setDomain(e.target.value)}
-          disabled={loading}
-          required
-        />
-        <button type="submit" disabled={loading || !domain.trim()}>
-          {loading ? 'Scanning...' : 'Scan'}
-        </button>
-      </form>
+      {/* ── Main content ── */}
+      <main className="main">
+        <div className="container">
 
-      {/* Loading */}
-      {loading && (
-        <div className="loading">
-          <div className="spinner" />
-          <span>Enumerating subdomains and analyzing with AI — this may take a moment...</span>
-        </div>
-      )}
+          {/* Scan hero */}
+          <section className={`hero${result || error ? ' hero-compact' : ''}`}>
+            <form onSubmit={handleScan} className="scan-form">
+              <div className="scan-input-wrap">
+                <input
+                  type="text"
+                  placeholder="Enter a domain to scan — e.g. example.com"
+                  value={domain}
+                  onChange={e => setDomain(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+              </div>
+              <button type="submit" disabled={loading || !domain.trim()}>
+                {loading ? 'Scanning…' : 'Scan'}
+              </button>
+            </form>
+          </section>
 
-      {/* Error */}
-      {error && <div className="error-box">{error}</div>}
-
-      {/* Results — all children read terms from context */}
-      {result && analysis && (
-        <TermsContext.Provider value={mergedTerms}>
-          <div className="results">
-
-            {/* Overall risk */}
-            <div className="risk-header">
-              <RiskBadge level={analysis.risk_level} large />
-              <span className="risk-label">Overall Risk — {result.domain}</span>
-              <button className="download-btn" onClick={downloadPdf}>Download Report</button>
+          {/* Loading */}
+          {loading && (
+            <div className="loading">
+              <div className="spinner" />
+              <span>Enumerating subdomains and running AI analysis — this may take up to 30 seconds…</span>
             </div>
+          )}
 
-            {/* Overview */}
-            <section className="card">
-              <h2 className="section-title">Overview</h2>
-              <p className="overview-text">
-                <HighlightedText text={analysis.overview} />
-              </p>
-            </section>
+          {/* Error */}
+          {error && <div className="error-box">{error}</div>}
 
-            {/* Findings */}
-            {analysis.findings.length > 0 && (
-              <section className="card">
-                <h2 className="section-title">Notable Findings ({analysis.findings.length})</h2>
-                <div className="findings-list">
-                  {analysis.findings.map((f, i) => (
-                    <FindingCard key={i} finding={f} />
-                  ))}
+          {/* Results */}
+          {result && analysis && (
+            <TermsContext.Provider value={mergedTerms}>
+              <div className="results">
+
+                {/* Results header row */}
+                <div className="results-header">
+                  <div className="results-header-left">
+                    <RiskBadge level={analysis.risk_level} large />
+                    <span className="results-domain">{result.domain}</span>
+                  </div>
+                  <button className="download-btn" onClick={downloadPdf}>
+                    ↓ Download Report
+                  </button>
                 </div>
-              </section>
-            )}
 
-            {/* Recommendations */}
-            {analysis.recommendations.length > 0 && (
-              <section className="card">
-                <h2 className="section-title">Recommendations</h2>
-                <ol className="recommendations-list">
-                  {analysis.recommendations.map((rec, i) => (
-                    <li key={i}><HighlightedText text={rec} /></li>
-                  ))}
-                </ol>
-              </section>
-            )}
+                {/* Overview */}
+                <section className="card">
+                  <h2 className="section-title">Overview</h2>
+                  <p className="overview-text">
+                    <HighlightedText text={analysis.overview} />
+                  </p>
+                </section>
 
-            {/* Full subdomain list */}
-            <section className="card">
-              <h2 className="section-title">All Subdomains ({result.subdomains.length})</h2>
-              <ul className="subdomain-list">
-                {result.subdomains.map(s => (
-                  <li key={s}><SubdomainDisplay subdomain={s} /></li>
-                ))}
-              </ul>
-            </section>
+                {/* Findings */}
+                {analysis.findings.length > 0 && (
+                  <section className="card">
+                    <h2 className="section-title">Notable Findings <span className="section-count">({analysis.findings.length})</span></h2>
+                    <div className="findings-list">
+                      {analysis.findings.map((f, i) => (
+                        <FindingCard key={i} finding={f} />
+                      ))}
+                    </div>
+                  </section>
+                )}
 
-          </div>
-        </TermsContext.Provider>
-      )}
-    </div>
+                {/* Recommendations */}
+                {analysis.recommendations.length > 0 && (
+                  <section className="card">
+                    <h2 className="section-title">Recommendations</h2>
+                    <ol className="recommendations-list">
+                      {analysis.recommendations.map((rec, i) => (
+                        <li key={i}><HighlightedText text={rec} /></li>
+                      ))}
+                    </ol>
+                  </section>
+                )}
+
+                {/* Subdomain list */}
+                <section className="card">
+                  <h2 className="section-title">All Subdomains <span className="section-count">({result.subdomains.length})</span></h2>
+                  <ul className="subdomain-list">
+                    {result.subdomains.map(s => (
+                      <li key={s}><SubdomainDisplay subdomain={s} /></li>
+                    ))}
+                  </ul>
+                </section>
+
+              </div>
+            </TermsContext.Provider>
+          )}
+        </div>
+      </main>
+    </>
   )
 }

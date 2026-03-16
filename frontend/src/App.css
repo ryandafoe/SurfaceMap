@@ -1,111 +1,228 @@
-/* Reset */
+/* ============================================================
+   Reset & base
+   ============================================================ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-body {
-  background: #080b10;
-  color: #e2e8f0;
-  font-family: 'Inter', system-ui, sans-serif;
+:root {
+  --cyan:      #00f5d4;
+  --cyan-dim:  rgba(0, 245, 212, 0.12);
+  --cyan-glow: rgba(0, 245, 212, 0.06);
+  --bg:        #080b10;
+  --surface:   #0c1018;
+  --surface2:  #101620;
+  --border:    #18222e;
+  --text:      #c9d4e0;
+  --text-dim:  #475569;
+  --text-faint:#243040;
+}
+
+html, body {
+  width: 100%;
   min-height: 100vh;
-  display: block; /* override index.css flexbox centering */
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg);
+  /* Grid texture fixed to viewport so it always covers the full screen */
+  background-image:
+    linear-gradient(rgba(0, 245, 212, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 245, 212, 0.022) 1px, transparent 1px);
+  background-size: 48px 48px;
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: 'Syne', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-/* -------------------------------------------------------------------------
-   Layout
-------------------------------------------------------------------------- */
-.container {
-  max-width: 860px;
+/* ============================================================
+   Sticky top bar
+   ============================================================ */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(8, 11, 16, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0, 245, 212, 0.08);
+}
+
+.topbar-inner {
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 3rem 1.5rem 5rem;
-}
-
-/* -------------------------------------------------------------------------
-   Header
-------------------------------------------------------------------------- */
-.header {
-  margin-bottom: 2.5rem;
-}
-
-.logo-row {
+  padding: 0 2rem;
+  height: 56px;
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  margin-bottom: 0.35rem;
+  justify-content: space-between;
 }
 
-h1 {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: #f8fafc;
-  letter-spacing: -0.02em;
-  line-height: 1;
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
-.subtitle {
-  color: #334155;
-  font-size: 0.875rem;
-  padding-left: calc(30px + 0.7rem);
+.topbar-name {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: #f0f4f8;
+  letter-spacing: -0.01em;
 }
 
-/* -------------------------------------------------------------------------
-   Scan form
-------------------------------------------------------------------------- */
+.topbar-tagline {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Animated pulse dot — shown when scanning */
+.pulse-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+  animation: pulse 1.2s ease-in-out infinite;
+  margin-left: 2px;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1;   transform: scale(1);    }
+  50%       { opacity: 0.3; transform: scale(0.65); }
+}
+
+/* ============================================================
+   Main layout
+   ============================================================ */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 6rem;
+}
+
+.container {
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 2rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================
+   Hero / scan form
+   ============================================================ */
+
+/* On load (no results): vertically center the form in the remaining viewport */
+.hero {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 56px);
+}
+
+/* Once results exist: collapse hero to compact top padding */
+.hero-compact {
+  flex: none;
+  min-height: unset;
+  padding: 2.5rem 0 2rem;
+}
+
 .scan-form {
   display: flex;
-  gap: 0.65rem;
-  margin-bottom: 2rem;
+  gap: 0.75rem;
+  align-items: stretch;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.scan-input-wrap {
+  flex: 1;
+  min-width: 0;
 }
 
 .scan-form input {
-  flex: 1;
-  padding: 0.7rem 1rem;
+  width: 100%;
+  padding: 0.9rem 1.25rem;
   border-radius: 8px;
-  border: 1px solid #1e2a3a;
-  background: #0f1623;
-  color: #e2e8f0;
-  font-size: 0.95rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: #e8eef4;
+  font-size: 1rem;
+  font-family: 'JetBrains Mono', monospace;
   outline: none;
-  transition: border-color 0.15s;
-  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.scan-form input::placeholder { color: #2d3f55; }
-.scan-form input:focus { border-color: #4f86f7; }
+.scan-form input::placeholder {
+  color: var(--text-faint);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.scan-form input:focus {
+  border-color: rgba(0, 245, 212, 0.4);
+  box-shadow: 0 0 0 3px rgba(0, 245, 212, 0.06);
+}
 
 .scan-form button {
-  padding: 0.7rem 1.5rem;
+  padding: 0.9rem 2rem;
   border-radius: 8px;
-  border: none;
-  background: #4f86f7;
-  color: #fff;
-  font-size: 0.95rem;
-  font-weight: 600;
+  border: 1px solid var(--cyan);
+  background: var(--cyan-dim);
+  color: var(--cyan);
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: 'Syne', sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.2s, box-shadow 0.2s, color 0.2s;
   white-space: nowrap;
-  font-family: inherit;
 }
 
-.scan-form button:hover:not(:disabled) { background: #3b6fd4; }
-.scan-form button:disabled { opacity: 0.4; cursor: not-allowed; }
+.scan-form button:hover:not(:disabled) {
+  background: rgba(0, 245, 212, 0.2);
+  box-shadow: 0 0 20px rgba(0, 245, 212, 0.12);
+}
 
-/* -------------------------------------------------------------------------
-   Loading
-------------------------------------------------------------------------- */
+.scan-form button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   Loading state
+   ============================================================ */
 .loading {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
-  color: #475569;
-  font-size: 0.875rem;
-  margin-bottom: 1.5rem;
+  gap: 0.9rem;
+  color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  margin-bottom: 2rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
 }
 
 .spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid #1e2a3a;
-  border-top-color: #4f86f7;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--cyan);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
   flex-shrink: 0;
@@ -113,251 +230,303 @@ h1 {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* -------------------------------------------------------------------------
+/* ============================================================
    Error
-------------------------------------------------------------------------- */
+   ============================================================ */
 .error-box {
-  background: #150a0a;
+  background: #130a0a;
   border: 1px solid #7f1d1d;
   color: #fca5a5;
-  padding: 0.8rem 1rem;
+  padding: 0.9rem 1.25rem;
   border-radius: 8px;
-  font-size: 0.875rem;
-  margin-bottom: 1.5rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  margin-bottom: 2rem;
 }
 
-/* -------------------------------------------------------------------------
-   Results wrapper
-------------------------------------------------------------------------- */
+/* ============================================================
+   Results — fade in on mount
+   ============================================================ */
 .results {
   display: flex;
   flex-direction: column;
+  gap: 1.25rem;
+  animation: fadeInUp 0.4s ease-out;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+/* Results header row */
+.results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.25rem;
+}
+
+.results-header-left {
+  display: flex;
+  align-items: center;
   gap: 1rem;
 }
 
-/* -------------------------------------------------------------------------
-   Risk header
-------------------------------------------------------------------------- */
-.risk-header {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  margin-bottom: 0.25rem;
-  flex-wrap: wrap;
+.results-domain {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1rem;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
 }
 
-.risk-label {
-  color: #475569;
-  font-size: 0.875rem;
-  flex: 1;
-}
-
-.download-btn {
-  padding: 0.4rem 1rem;
-  border-radius: 6px;
-  border: 1px solid #1e2a3a;
-  background: #0f1623;
-  color: #94a3b8;
-  font-size: 0.8rem;
-  font-family: inherit;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-  white-space: nowrap;
-}
-
-.download-btn:hover {
-  border-color: #4f86f7;
-  color: #e2e8f0;
-}
-
-/* -------------------------------------------------------------------------
+/* ============================================================
    Risk badge
-------------------------------------------------------------------------- */
+   ============================================================ */
 .risk-badge {
   display: inline-block;
-  padding: 0.2rem 0.6rem;
-  border-radius: 5px;
+  padding: 0.2rem 0.65rem;
+  border-radius: 4px;
   border: 1px solid;
-  font-size: 0.68rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   white-space: nowrap;
 }
 
 .risk-badge-large {
-  padding: 0.35rem 1rem;
-  font-size: 0.875rem;
-  border-radius: 7px;
-  letter-spacing: 0.1em;
+  padding: 0.4rem 1.1rem;
+  font-size: 0.8rem;
+  border-radius: 5px;
+  letter-spacing: 0.14em;
 }
 
-/* -------------------------------------------------------------------------
+/* ============================================================
    Cards
-------------------------------------------------------------------------- */
+   ============================================================ */
 .card {
-  background: #0d1420;
-  border: 1px solid #1a2335;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 1.2rem 1.4rem;
+  padding: 1.75rem 2rem;
+  transition: border-color 0.2s;
 }
 
+.card:hover {
+  border-color: rgba(0, 245, 212, 0.12);
+}
+
+/* Section title with cyan left accent */
 .section-title {
-  font-size: 0.7rem;
+  font-family: 'Syne', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #334155;
-  font-weight: 600;
-  margin-bottom: 0.9rem;
+  letter-spacing: 0.16em;
+  color: var(--cyan);
+  border-left: 3px solid var(--cyan);
+  padding-left: 0.75rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-/* -------------------------------------------------------------------------
+.section-count {
+  color: var(--text-dim);
+  font-weight: 400;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================================
    Overview
-------------------------------------------------------------------------- */
+   ============================================================ */
 .overview-text {
-  line-height: 1.75;
-  color: #94a3b8;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  line-height: 1.85;
+  color: #b0bec5;
 }
 
-/* -------------------------------------------------------------------------
+/* ============================================================
    Findings
-------------------------------------------------------------------------- */
+   ============================================================ */
 .findings-list {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.85rem;
 }
 
 .finding-card {
-  background: #080b10;
-  border: 1px solid #1a2335;
+  background: var(--surface2);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 0.85rem 1rem;
+  padding: 1.1rem 1.4rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.finding-card:hover {
+  border-color: rgba(0, 245, 212, 0.25);
+  box-shadow: 0 0 28px rgba(0, 245, 212, 0.05);
 }
 
 .finding-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.45rem;
+  gap: 1rem;
+  margin-bottom: 0.65rem;
 }
 
 .subdomain-text {
-  font-family: 'Fira Code', 'Courier New', monospace;
-  font-size: 0.875rem;
-  color: #cbd5e1;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #d4e0ec;
   word-break: break-all;
+  line-height: 1.4;
 }
 
-.subdomain-dot { color: #2d3f55; }
+.subdomain-dot {
+  color: #4a6070;
+}
 
 .finding-explanation {
-  font-size: 0.85rem;
-  color: #4a5568;
-  line-height: 1.6;
+  font-size: 0.875rem;
+  color: #b0bec5;
+  line-height: 1.7;
 }
 
-/* -------------------------------------------------------------------------
+/* ============================================================
    Recommendations
-------------------------------------------------------------------------- */
+   ============================================================ */
 .recommendations-list {
   list-style: none;
   counter-reset: rec;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.75rem;
 }
 
 .recommendations-list li {
   counter-increment: rec;
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
-  font-size: 0.875rem;
-  color: #94a3b8;
-  line-height: 1.6;
+  gap: 0.85rem;
+  font-size: 0.9rem;
+  color: #8a9bb0;
+  line-height: 1.7;
 }
 
 .recommendations-list li::before {
   content: counter(rec);
-  background: #0f1623;
-  border: 1px solid #1e2a3a;
-  color: #4f86f7;
-  font-size: 0.7rem;
+  background: var(--surface2);
+  border: 1px solid rgba(0, 245, 212, 0.25);
+  color: var(--cyan);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
   font-weight: 700;
-  min-width: 20px;
-  height: 20px;
+  min-width: 22px;
+  height: 22px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
-/* -------------------------------------------------------------------------
+/* ============================================================
    Subdomain list
-------------------------------------------------------------------------- */
+   ============================================================ */
 .subdomain-list {
   list-style: none;
-  max-height: 280px;
+  max-height: 320px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
 }
 
 .subdomain-list li {
-  padding: 0.3rem 0;
-  border-bottom: 1px solid #0f1623;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #0a1018;
   font-size: 0.82rem;
 }
 
 .subdomain-list li:last-child { border-bottom: none; }
 
-/* Scrollbar styling */
 .subdomain-list::-webkit-scrollbar { width: 4px; }
 .subdomain-list::-webkit-scrollbar-track { background: transparent; }
-.subdomain-list::-webkit-scrollbar-thumb { background: #1e2a3a; border-radius: 2px; }
+.subdomain-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-/* -------------------------------------------------------------------------
+/* ============================================================
+   Download button
+   ============================================================ */
+.download-btn {
+  padding: 0.5rem 1.1rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  font-family: 'Syne', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+  white-space: nowrap;
+}
+
+.download-btn:hover {
+  border-color: rgba(0, 245, 212, 0.35);
+  color: var(--cyan);
+  background: var(--cyan-glow);
+}
+
+/* ============================================================
    Tooltip
-------------------------------------------------------------------------- */
+   ============================================================ */
 .tooltip-wrapper {
   position: relative;
   display: inline-block;
 }
 
 .tooltip-term {
-  color: #4f86f7;
+  color: var(--cyan);
   text-decoration: underline;
   text-decoration-style: dotted;
   text-underline-offset: 3px;
   cursor: help;
+  opacity: 0.85;
+}
+
+.tooltip-term:hover {
+  opacity: 1;
 }
 
 .tooltip-box {
   display: none;
   position: absolute;
-  bottom: calc(100% + 7px);
+  bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
-  background: #111827;
-  border: 1px solid #1e2a3a;
-  color: #94a3b8;
-  font-size: 0.76rem;
-  line-height: 1.55;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  width: 230px;
-  white-space: normal;
-  z-index: 50;
-  pointer-events: none;
-  font-family: 'Inter', system-ui, sans-serif;
+  background: #0f1a26;
+  border: 1px solid rgba(0, 245, 212, 0.2);
+  color: #8a9bb0;
+  font-size: 0.75rem;
+  font-family: 'Syne', sans-serif;
   font-weight: 400;
+  line-height: 1.6;
+  padding: 0.55rem 0.8rem;
+  border-radius: 6px;
+  width: 240px;
+  white-space: normal;
+  z-index: 200;
+  pointer-events: none;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 245, 212, 0.05);
   text-decoration: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .tooltip-wrapper:hover .tooltip-box { display: block; }
