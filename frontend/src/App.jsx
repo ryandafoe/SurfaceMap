@@ -1,4 +1,4 @@
-import { useState, createContext, useContext } from 'react'
+import { useState, useRef, createContext, useContext } from 'react'
 import { jsPDF } from 'jspdf'
 import './App.css'
 
@@ -33,6 +33,19 @@ function buildPattern(terms) {
     .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   return new RegExp(`(${escaped.join('|')})`, 'gi')
 }
+
+// ---------------------------------------------------------------------------
+// Scan steps
+// ---------------------------------------------------------------------------
+const SCAN_STEPS = [
+  'Querying certificate transparency logs...',
+  'Enumerating subdomains...',
+  'Analyzing attack surface with AI...',
+  'Generating report...',
+]
+
+// Timestamps (ms) after scan start when each step activates
+const STEP_DELAYS = [0, 3000, 8000, 15000]
 
 // ---------------------------------------------------------------------------
 // Risk colours — HIGH is solid/urgent, MEDIUM/LOW are bordered
@@ -140,14 +153,27 @@ function FindingCard({ finding }) {
 export default function App() {
   const [domain, setDomain] = useState('')
   const [loading, setLoading] = useState(false)
+  const [scanStep, setScanStep] = useState(-1)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
+  const stepTimers = useRef([])
+
+  function clearStepTimers() {
+    stepTimers.current.forEach(id => clearTimeout(id))
+    stepTimers.current = []
+  }
 
   async function handleScan(e) {
     e.preventDefault()
     setLoading(true)
+    setScanStep(0)
     setResult(null)
     setError(null)
+
+    // Schedule step advances (step 0 is set immediately above)
+    stepTimers.current = STEP_DELAYS.slice(1).map((delay, i) =>
+      setTimeout(() => setScanStep(i + 1), delay)
+    )
 
     try {
       const res = await fetch('http://localhost:8000/scan', {
@@ -164,7 +190,9 @@ export default function App() {
     } catch {
       setError('Could not reach the API. Is the backend running?')
     } finally {
+      clearStepTimers()
       setLoading(false)
+      setScanStep(-1)
     }
   }
 
@@ -265,7 +293,7 @@ export default function App() {
         <div className="container">
 
           {/* Scan hero */}
-          <section className={`hero${result || error ? ' hero-compact' : ''}`}>
+          <section className={`hero${result || error || loading ? ' hero-compact' : ''}`}>
             <form onSubmit={handleScan} className="scan-form">
               <div className="scan-input-wrap">
                 <input
@@ -281,15 +309,27 @@ export default function App() {
                 {loading ? 'Scanning…' : 'Scan'}
               </button>
             </form>
-          </section>
 
-          {/* Loading */}
-          {loading && (
-            <div className="loading">
-              <div className="spinner" />
-              <span>Enumerating subdomains and running AI analysis — this may take up to 30 seconds…</span>
-            </div>
-          )}
+            {/* Multi-step loading indicator — lives inside hero so it's always visible */}
+            {loading && (
+              <div className="scan-steps">
+                {SCAN_STEPS.map((label, i) => {
+                  const state = i < scanStep ? 'done' : i === scanStep ? 'active' : 'pending'
+                  console.log(`step ${i}: ${state} (scanStep=${scanStep})`)
+                  return (
+                    <div key={i} className={`scan-step scan-step--${state}`}>
+                      <span className="scan-step__icon" aria-hidden="true">
+                        {state === 'done'    && '✓'}
+                        {state === 'active'  && <span className="step-pulse" />}
+                        {state === 'pending' && '·'}
+                      </span>
+                      <span className="scan-step__label">{label}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </section>
 
           {/* Error */}
           {error && <div className="error-box">{error}</div>}
