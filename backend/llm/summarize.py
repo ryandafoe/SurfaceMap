@@ -19,29 +19,44 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SYSTEM_PROMPT = """You are an expert security researcher specializing in attack surface analysis.
-When given a domain and its subdomains, analyze them and return a JSON object — nothing else.
-No markdown, no backticks, no explanation outside the JSON.
+SYSTEM_PROMPT = """You are a security advisor helping a company understand and improve their own external infrastructure.
+When given a domain and its publicly visible subdomains, produce a professional security awareness report for the company's internal team.
+Return a JSON object — nothing else. No markdown, no backticks, no explanation outside the JSON.
 
-Focus on subdomains that suggest sensitive or interesting infrastructure — such as those containing keywords
+Your tone should be that of a trusted advisor: clear, professional, and honest without being alarmist.
+Write as if speaking directly to the company — use "your infrastructure", "your team", "you should".
+Frame every finding around business impact and what the company should do, not what an outsider could do.
+
+Focus on subdomains that indicate sensitive or business-critical infrastructure — such as those containing keywords
 like: admin, api, dev, staging, test, internal, vpn, jenkins, jira, grafana, kibana, auth, login, portal,
-backup, db, mail, smtp, ftp, cdn, s3, or similar. Include only the top 10 most interesting findings.
+backup, db, mail, smtp, ftp, cdn, s3, or similar. Include only the top 10 most significant findings.
+
+Guidance on each field:
+- risk_level: overall business impact if these findings went unaddressed (High = urgent action needed, Medium = should be scheduled, Low = monitor and document)
+- overview: 2-3 sentence executive summary — what does this footprint say about the company's posture? Written for a non-technical stakeholder who needs to understand the situation, not be scared by it.
+- findings[].explanation: explain what this service likely is, why it matters to the business, and what the company should verify or address. Focus on "you should check / ensure / review" rather than "an attacker could".
+- findings[].risk: business impact of this specific service being misconfigured or exposed — not attacker opportunity.
+- recommendations: concrete, specific steps the company's team can realistically take — e.g. "Restrict access to jenkins.yourdomain.com to your VPN or internal network only" rather than generic advice.
+- glossary: 15-20 terms that are relevant to the findings in this specific report. Include technologies, protocols, service names, security concepts, and acronyms that appear in or are directly relevant to your findings and recommendations. Each entry should give a plain-English definition written for a technically aware but non-specialist reader — one or two sentences max. Prioritise terms a reader might not know without a security background.
 
 Return exactly this structure:
 {
   "risk_level": "High | Medium | Low",
-  "overview": "2-3 sentence plain English summary of the attack surface",
+  "overview": "Executive summary written for a non-technical stakeholder",
   "findings": [
     {
       "subdomain": "example.domain.com",
       "risk": "High | Medium | Low",
-      "explanation": "Why this subdomain is interesting to a security researcher"
+      "explanation": "What this service is, why it matters to your business, and what you should verify"
     }
   ],
-  "recommendations": ["actionable step 1", "actionable step 2"]
+  "recommendations": ["Specific, actionable step your team can take"],
+  "glossary": [
+    { "term": "Example Term", "definition": "Plain-English explanation relevant to this report" }
+  ]
 }
 
-risk_level should reflect the overall severity across all findings. findings must contain at most 10 entries."""
+risk_level should reflect overall business impact. findings must contain at most 10 entries. glossary must contain 15-20 entries."""
 
 
 async def summarize_findings(domain: str, subdomains: list[str]) -> dict:
@@ -57,9 +72,9 @@ async def summarize_findings(domain: str, subdomains: list[str]) -> dict:
 
     subdomain_list = "\n".join(f"  - {s}" for s in subdomains) if subdomains else "  (none found)"
 
-    user_message = f"""Analyze the attack surface for the domain: {domain}
+    user_message = f"""Generate a security awareness report for the domain: {domain}
 
-Subdomains discovered ({len(subdomains)} total):
+The following subdomains are publicly visible ({len(subdomains)} total):
 {subdomain_list}
 
 Return only valid JSON. No markdown, no backticks, no additional text."""
@@ -69,7 +84,7 @@ Return only valid JSON. No markdown, no backticks, no additional text."""
     try:
         message = await client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=2048,
+            max_tokens=4096,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],
         )

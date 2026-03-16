@@ -38,11 +38,17 @@ class Finding(BaseModel):
     explanation: str
 
 
+class GlossaryEntry(BaseModel):
+    term: str
+    definition: str
+
+
 class Analysis(BaseModel):
     risk_level: str
     overview: str
     findings: list[Finding]
     recommendations: list[str]
+    glossary: list[GlossaryEntry]
 
 
 class ScanResponse(BaseModel):

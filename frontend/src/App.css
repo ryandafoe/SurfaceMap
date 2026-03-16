@@ -143,11 +143,31 @@ h1 {
   align-items: center;
   gap: 0.9rem;
   margin-bottom: 0.25rem;
+  flex-wrap: wrap;
 }
 
 .risk-label {
   color: #475569;
   font-size: 0.875rem;
+  flex: 1;
+}
+
+.download-btn {
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  border: 1px solid #1e2a3a;
+  background: #0f1623;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.download-btn:hover {
+  border-color: #4f86f7;
+  color: #e2e8f0;
 }
 
 /* -------------------------------------------------------------------------

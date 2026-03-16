@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, createContext, useContext } from 'react'
+import { jsPDF } from 'jspdf'
 import './App.css'
 
 // ---------------------------------------------------------------------------
-// Tooltip definitions
+// Static baseline terms — always available regardless of scan results
 // ---------------------------------------------------------------------------
-const TOOLTIP_TERMS = {
+const STATIC_TERMS = {
   qa:      'Quality Assurance environment — often has relaxed security controls compared to production',
   admin:   'Administrative interface — high value target for attackers seeking elevated access',
   git:     'Source code repository — exposure can leak proprietary code and secrets',
@@ -17,6 +18,31 @@ const TOOLTIP_TERMS = {
   api:     'Application Programming Interface endpoint — may expose data or functionality without proper auth',
 }
 
+// Context holds the active merged terms map (lowercase key → definition)
+const TermsContext = createContext(STATIC_TERMS)
+
+// Build a merged terms map from the static baseline + API glossary.
+// Glossary entries win on collision so scan-specific definitions take precedence.
+function buildTermsMap(glossary = []) {
+  const fromApi = Object.fromEntries(
+    glossary.map(({ term, definition }) => [term.toLowerCase(), definition])
+  )
+  return { ...STATIC_TERMS, ...fromApi }
+}
+
+// Build a regex that matches any known term, case-insensitively.
+// Sort longest-first so multi-word terms (e.g. "Certificate Transparency")
+// are matched before their component words.
+function buildPattern(terms) {
+  const escaped = Object.keys(terms)
+    .sort((a, b) => b.length - a.length)
+    .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  return new RegExp(`(${escaped.join('|')})`, 'gi')
+}
+
+// ---------------------------------------------------------------------------
+// Risk colours
+// ---------------------------------------------------------------------------
 const RISK_COLORS = {
   high:   { bg: '#2d1515', border: '#dc2626', text: '#f87171' },
   medium: { bg: '#2d1a0a', border: '#d97706', text: '#fbbf24' },
@@ -28,30 +54,31 @@ function riskColors(level) {
 }
 
 // ---------------------------------------------------------------------------
-// Tooltip — wraps a known term with a hover tooltip
+// Tooltip — reads definition from context
 // ---------------------------------------------------------------------------
-function Tooltip({ term, children }) {
+function Tooltip({ termKey, children }) {
+  const terms = useContext(TermsContext)
   return (
     <span className="tooltip-wrapper">
       <span className="tooltip-term">{children}</span>
-      <span className="tooltip-box">{TOOLTIP_TERMS[term]}</span>
+      <span className="tooltip-box">{terms[termKey]}</span>
     </span>
   )
 }
 
 // ---------------------------------------------------------------------------
-// HighlightedText — scans prose for known terms and wraps them in Tooltip
+// HighlightedText — scans prose for terms from context and wraps them
 // ---------------------------------------------------------------------------
 function HighlightedText({ text }) {
-  const terms = Object.keys(TOOLTIP_TERMS)
-  const pattern = new RegExp(`\\b(${terms.join('|')})\\b`, 'gi')
+  const terms = useContext(TermsContext)
+  const pattern = buildPattern(terms)
   const parts = text.split(pattern)
   return (
     <>
       {parts.map((part, i) => {
-        const lower = part.toLowerCase()
-        return TOOLTIP_TERMS[lower]
-          ? <Tooltip key={i} term={lower}>{part}</Tooltip>
+        const key = part.toLowerCase()
+        return terms[key]
+          ? <Tooltip key={i} termKey={key}>{part}</Tooltip>
           : <span key={i}>{part}</span>
       })}
     </>
@@ -59,18 +86,19 @@ function HighlightedText({ text }) {
 }
 
 // ---------------------------------------------------------------------------
-// SubdomainDisplay — renders a subdomain with tooltips on matching segments
+// SubdomainDisplay — tooltips on matching dot-separated segments
 // ---------------------------------------------------------------------------
 function SubdomainDisplay({ subdomain }) {
+  const terms = useContext(TermsContext)
   const parts = subdomain.split('.')
   return (
     <span className="subdomain-text">
       {parts.map((part, i) => {
-        const lower = part.toLowerCase()
+        const key = part.toLowerCase()
         return (
           <span key={i}>
-            {TOOLTIP_TERMS[lower]
-              ? <Tooltip term={lower}>{part}</Tooltip>
+            {terms[key]
+              ? <Tooltip termKey={key}>{part}</Tooltip>
               : part}
             {i < parts.length - 1 && <span className="subdomain-dot">.</span>}
           </span>
@@ -147,6 +175,81 @@ export default function App() {
   }
 
   const analysis = result?.analysis
+  const mergedTerms = buildTermsMap(analysis?.glossary)
+
+  function downloadPdf() {
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+    const pageW = doc.internal.pageSize.getWidth()
+    const margin = 50
+    const contentW = pageW - margin * 2
+    const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+
+    let y = 0
+
+    // Helper: add text with automatic page breaks
+    function write(text, { fontSize = 11, bold = false, gap = 14 } = {}) {
+      doc.setFontSize(fontSize)
+      doc.setFont('helvetica', bold ? 'bold' : 'normal')
+      const lines = doc.splitTextToSize(text, contentW)
+      lines.forEach(line => {
+        if (y > doc.internal.pageSize.getHeight() - margin) {
+          doc.addPage()
+          y = margin
+        }
+        doc.text(line, margin, y)
+        y += fontSize * 1.35
+      })
+      y += gap
+    }
+
+    function divider() {
+      doc.setDrawColor(180)
+      doc.line(margin, y, pageW - margin, y)
+      y += 14
+    }
+
+    // Title
+    y = margin
+    write('SurfaceMap Security Report', { fontSize: 20, bold: true, gap: 6 })
+    write(`Domain: ${result.domain}`, { fontSize: 11, gap: 4 })
+    write(`Date: ${dateStr}`, { fontSize: 11, gap: 4 })
+    write(`Overall Risk: ${analysis.risk_level}`, { fontSize: 11, bold: true, gap: 16 })
+    divider()
+
+    // Overview
+    write('Overview', { fontSize: 14, bold: true, gap: 8 })
+    write(analysis.overview, { fontSize: 11, gap: 16 })
+    divider()
+
+    // Findings
+    write('Notable Findings', { fontSize: 14, bold: true, gap: 10 })
+    analysis.findings.forEach((f, i) => {
+      write(`${i + 1}. ${f.subdomain}  [${f.risk}]`, { fontSize: 11, bold: true, gap: 4 })
+      write(f.explanation, { fontSize: 10, gap: 12 })
+    })
+    divider()
+
+    // Recommendations
+    write('Recommendations', { fontSize: 14, bold: true, gap: 10 })
+    analysis.recommendations.forEach((rec, i) => {
+      write(`${i + 1}. ${rec}`, { fontSize: 11, gap: 8 })
+    })
+    divider()
+
+    // Footer
+    const totalPages = doc.internal.getNumberOfPages()
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p)
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(150)
+      doc.text('Generated by SurfaceMap', margin, doc.internal.pageSize.getHeight() - 25)
+      doc.text(`Page ${p} of ${totalPages}`, pageW - margin, doc.internal.pageSize.getHeight() - 25, { align: 'right' })
+      doc.setTextColor(0)
+    }
+
+    doc.save(`surfacemap-${result.domain}-${Date.now()}.pdf`)
+  }
 
   return (
     <div className="container">
@@ -193,59 +296,62 @@ export default function App() {
       {/* Error */}
       {error && <div className="error-box">{error}</div>}
 
-      {/* Results */}
+      {/* Results — all children read terms from context */}
       {result && analysis && (
-        <div className="results">
+        <TermsContext.Provider value={mergedTerms}>
+          <div className="results">
 
-          {/* Overall risk */}
-          <div className="risk-header">
-            <RiskBadge level={analysis.risk_level} large />
-            <span className="risk-label">Overall Risk — {result.domain}</span>
+            {/* Overall risk */}
+            <div className="risk-header">
+              <RiskBadge level={analysis.risk_level} large />
+              <span className="risk-label">Overall Risk — {result.domain}</span>
+              <button className="download-btn" onClick={downloadPdf}>Download Report</button>
+            </div>
+
+            {/* Overview */}
+            <section className="card">
+              <h2 className="section-title">Overview</h2>
+              <p className="overview-text">
+                <HighlightedText text={analysis.overview} />
+              </p>
+            </section>
+
+            {/* Findings */}
+            {analysis.findings.length > 0 && (
+              <section className="card">
+                <h2 className="section-title">Notable Findings ({analysis.findings.length})</h2>
+                <div className="findings-list">
+                  {analysis.findings.map((f, i) => (
+                    <FindingCard key={i} finding={f} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Recommendations */}
+            {analysis.recommendations.length > 0 && (
+              <section className="card">
+                <h2 className="section-title">Recommendations</h2>
+                <ol className="recommendations-list">
+                  {analysis.recommendations.map((rec, i) => (
+                    <li key={i}><HighlightedText text={rec} /></li>
+                  ))}
+                </ol>
+              </section>
+            )}
+
+            {/* Full subdomain list */}
+            <section className="card">
+              <h2 className="section-title">All Subdomains ({result.subdomains.length})</h2>
+              <ul className="subdomain-list">
+                {result.subdomains.map(s => (
+                  <li key={s}><SubdomainDisplay subdomain={s} /></li>
+                ))}
+              </ul>
+            </section>
+
           </div>
-
-          {/* Overview */}
-          <section className="card">
-            <h2 className="section-title">Overview</h2>
-            <p className="overview-text">
-              <HighlightedText text={analysis.overview} />
-            </p>
-          </section>
-
-          {/* Findings */}
-          {analysis.findings.length > 0 && (
-            <section className="card">
-              <h2 className="section-title">Notable Findings ({analysis.findings.length})</h2>
-              <div className="findings-list">
-                {analysis.findings.map((f, i) => (
-                  <FindingCard key={i} finding={f} />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Recommendations */}
-          {analysis.recommendations.length > 0 && (
-            <section className="card">
-              <h2 className="section-title">Recommendations</h2>
-              <ol className="recommendations-list">
-                {analysis.recommendations.map((rec, i) => (
-                  <li key={i}><HighlightedText text={rec} /></li>
-                ))}
-              </ol>
-            </section>
-          )}
-
-          {/* Full subdomain list */}
-          <section className="card">
-            <h2 className="section-title">All Subdomains ({result.subdomains.length})</h2>
-            <ul className="subdomain-list">
-              {result.subdomains.map(s => (
-                <li key={s}><SubdomainDisplay subdomain={s} /></li>
-              ))}
-            </ul>
-          </section>
-
-        </div>
+        </TermsContext.Provider>
       )}
     </div>
   )
